@@ -1,15 +1,10 @@
 "use client"
 
+import { AffiliateLink, getAffiliateLinks } from "@lib/util/affiliate"
 import { useCallback } from "react"
 
-const AFFILIATE_KEYS = [
-  "affiliate_aliexpress",
-  "affiliate_shopee",
-  "affiliate_lazada",
-  "affiliate_tiktok",
-  "affiliate_shein",
-  "affiliate_trip",
-]
+const MEDUSA_BACKEND_URL =
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
 
 export default function DealButton({
   productId,
@@ -24,37 +19,35 @@ export default function DealButton({
   handle?: string | null
   isCard?: boolean
 }) {
-  const links: { source: string; url: string }[] = []
-
-  if (metadata) {
-    for (const key of AFFILIATE_KEYS) {
-      const url = metadata[key]
-      if (typeof url === "string" && url) {
-        links.push({
-          source: key.replace("affiliate_", ""),
-          url,
-        })
-      }
-    }
-  }
+  const links = getAffiliateLinks(metadata)
 
   const trackAndGo = useCallback(
-    async (url: string, source: string) => {
+    async (link: AffiliateLink) => {
+      const clickId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
       try {
-        await fetch("/store/affiliate/click", {
+        await fetch(`${MEDUSA_BACKEND_URL}/store/affiliate/click`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             product_id: productId,
             product_title: productTitle,
-            affiliate_url: url,
-            source,
+            affiliate_url: link.url,
+            source: link.source,
+            platform_title: link.label,
+            affiliate_id: link.affiliateId,
+            account_user: link.accountUser,
+            creator_username: link.creatorUsername,
+            click_id: clickId,
           }),
         })
       } catch {
         // silently fail – don't block the redirect
       }
-      window.open(url, "_blank", "noopener,noreferrer")
+      window.open(link.url, "_blank", "noopener,noreferrer")
     },
     [productId, productTitle]
   )
@@ -65,19 +58,18 @@ export default function DealButton({
       return (
         <a
           href={`/products/${handle}`}
-          className="block rounded-full bg-[#0b65c2] px-5 py-3 text-center text-base-semi text-white transition hover:bg-[#084b90]"
+          className="block rounded bg-[#1769aa] px-5 py-3 text-center text-base-semi text-white transition hover:bg-[#125384]"
         >
-          Buy Now
+          View Deal
         </a>
       )
     }
-    // On product detail page, when no affiliate links exist, show a placeholder disabled button
     return (
       <button
         disabled
-        className="block w-full cursor-not-allowed rounded-full bg-[#d0e5f2] px-5 py-3 text-center text-base-semi text-[#0b65c2]/60"
+        className="block h-12 w-full cursor-not-allowed rounded bg-[#d9ecff] px-5 text-center text-base-semi text-[#1769aa]/70"
       >
-        Buy Now (Deals Coming Soon)
+        Buy Now
       </button>
     )
   }
@@ -86,22 +78,22 @@ export default function DealButton({
   const extra = links.slice(1)
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="grid gap-2">
       <button
-        onClick={() => trackAndGo(primary.url, primary.source)}
-        className="rounded-full bg-[#0b65c2] px-4 py-2.5 text-center text-small-semi text-white transition hover:bg-[#084b90]"
+        onClick={() => trackAndGo(primary)}
+        className="h-12 rounded bg-[#1769aa] px-4 text-center text-base-semi text-white transition hover:bg-[#125384]"
       >
-        Buy Now on {primary.source}
+        Buy Now at {primary.label}
       </button>
       {extra.length > 0 && (
-        <div className="flex gap-1">
+        <div className="grid grid-cols-2 gap-2">
           {extra.map((l) => (
             <button
               key={l.source}
-              onClick={() => trackAndGo(l.url, l.source)}
-              className="rounded-full border border-[#cfd9e3] px-3 py-2 text-small-semi transition hover:border-[#0b65c2] hover:text-[#0b65c2]"
+              onClick={() => trackAndGo(l)}
+              className="rounded border border-[#d7dde5] px-3 py-2 text-small-semi text-[#344054] transition hover:border-[#1769aa] hover:bg-[#eef6ff] hover:text-[#1769aa]"
             >
-              {l.source}
+              {l.label}
             </button>
           ))}
         </div>

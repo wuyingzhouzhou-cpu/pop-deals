@@ -1,129 +1,147 @@
 import { Text } from "@modules/common/components/ui"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
+import {
+  formatViewCount,
+  getAffiliateLinks,
+  getPrimaryAffiliateLink,
+  getProductViewCount,
+} from "@lib/util/affiliate"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Thumbnail from "../thumbnail"
 import PreviewPrice from "./price"
-import DealButton from "../deal-button"
+import ShareLinkButton from "../share-link-button"
+import { Eye, ShoppingCart, Tag } from "@medusajs/icons"
 
 export default async function ProductPreview({
   product,
   isFeatured,
   region: _region,
   isRow = false,
+  viewCount,
 }: {
   product: HttpTypes.StoreProduct
   isFeatured?: boolean
   region: HttpTypes.StoreRegion
   isRow?: boolean
+  viewCount?: number
 }) {
   const { cheapestPrice } = getProductPrice({ product })
 
-  const affiliateSources = [
-    "aliexpress",
-    "shopee",
-    "lazada",
-    "tiktok",
-    "shein",
-    "trip",
-  ]
+  const affiliateLinks = getAffiliateLinks(product.metadata)
+  const primaryAffiliate = getPrimaryAffiliateLink(product.metadata)
+  const storeName = primaryAffiliate?.label || "Marketplace"
+  const productViewCount = viewCount ?? getProductViewCount(product)
+  const percentageDiff = Number(cheapestPrice?.percentage_diff || 0)
+  const savingsText = percentageDiff > 0 ? `${percentageDiff}% off` : "Deal"
 
-  const activeSources = affiliateSources.filter(
-    (s) =>
-      typeof product.metadata?.[`affiliate_${s}`] === "string" &&
-      (product.metadata?.[`affiliate_${s}`] as string).length > 0
-  )
-
-  // ========================== HORIZONTAL ROW LAYOUT (Home Page) ==========================
   if (isRow) {
     return (
-      <LocalizedClientLink
-        href={`/products/${product.handle}`}
-        className="group block h-full text-left"
+      <div
+        className="grid grid-cols-[72px_1fr] gap-3 rounded border border-[#d7dde5] bg-white p-3 transition hover:border-[#9ec7ea] hover:shadow-[0_8px_20px_rgba(16,24,40,0.08)] xsmall:grid-cols-[104px_1fr] small:grid-cols-[116px_1fr_148px]"
+        data-testid="product-wrapper"
       >
-        <div
-          className="grid h-full grid-cols-[92px_1fr] gap-3 rounded-2xl border border-[#cfd9e3] bg-white p-3 shadow-[0_10px_28px_rgba(21,59,101,0.06)] transition hover:border-[#0b65c2]/40 hover:shadow-[0_16px_40px_rgba(21,59,101,0.12)] xsmall:grid-cols-[132px_1fr] small:grid-cols-[154px_1fr_150px] small:gap-4"
-          data-testid="product-wrapper"
+        <LocalizedClientLink
+          href={`/products/${product.handle}`}
+          className="relative block overflow-hidden rounded bg-[#f2f4f7]"
         >
-          <div className="relative overflow-hidden rounded-xl bg-[#eef3f8]">
-            {activeSources.length > 0 && (
-              <div className="absolute left-2 top-2 z-10 flex flex-wrap gap-1">
-                {activeSources.slice(0, 2).map((s) => (
-                  <span
-                    key={s}
-                    className="rounded-full bg-[#ff8a00] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
-            <Thumbnail
-              thumbnail={product.thumbnail}
-              images={product.images}
-              size="full"
-              isFeatured={isFeatured}
-              className="rounded-xl bg-transparent transition duration-500 group-hover:scale-105"
-            />
+          <div className="absolute left-2 top-2 z-10 rounded bg-[#fff3eb] px-2 py-0.5 text-[10px] font-bold uppercase leading-4 text-[#b54708]">
+            {savingsText}
+          </div>
+          <Thumbnail
+            thumbnail={product.thumbnail}
+            images={product.images}
+            size="full"
+            isFeatured={isFeatured}
+            className="rounded bg-transparent transition duration-300 hover:scale-105"
+          />
+        </LocalizedClientLink>
+
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-small-regular text-[#667085]">
+            <span className="inline-flex items-center gap-1 rounded bg-[#ecfdf3] px-2 py-1 text-[#0f766e]">
+              <Eye className="h-3.5 w-3.5" />
+              {formatViewCount(productViewCount)} views
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Tag className="h-3.5 w-3.5" />
+              {storeName}
+            </span>
           </div>
 
-          <div className="flex flex-col justify-center py-1">
+          <LocalizedClientLink href={`/products/${product.handle}`}>
             <Text
-              className="text-large-semi leading-6 tracking-[-0.02em] text-[#17202a] group-hover:text-[#0b65c2]"
+              className="text-base-semi leading-5 text-[#101828] hover:text-[#1769aa] small:text-large-semi small:leading-6"
               data-testid="product-title"
             >
               {product.title}
             </Text>
+          </LocalizedClientLink>
 
-            {activeSources.length > 0 && (
-              <div className="mb-2 flex flex-wrap items-center gap-1">
-                {activeSources.map((s) => (
-                  <span
-                    key={s}
-                    className="mt-2 rounded-full bg-[#e7f2ff] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[#0b65c2]"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <div className="text-xl-semi text-[#b64000]">
-                {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
-              </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="text-xl-semi text-[#b54708]">
+              {primaryAffiliate?.priceText ||
+                (cheapestPrice && <PreviewPrice price={cheapestPrice} />)}
             </div>
+            {cheapestPrice?.original_price &&
+              !primaryAffiliate?.priceText &&
+              cheapestPrice.price_type === "sale" && (
+                <span className="text-small-regular text-[#98a2b3]">
+                  list price shown before discount
+                </span>
+              )}
           </div>
 
-          <div className="col-span-2 flex items-center justify-end border-t border-[#e1e8ef] pt-3 small:col-span-1 small:border-l small:border-t-0 small:pl-4 small:pt-0">
-            <div className="w-full rounded-full bg-[#0b65c2] px-5 py-3 text-center text-base-semi text-white transition hover:bg-[#084b90] small:w-auto">
-              Buy Now
+          {affiliateLinks.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1">
+              {affiliateLinks.slice(0, 4).map((link) => (
+                <span
+                  key={link.source}
+                  className="rounded border border-[#d7dde5] bg-[#f9fafb] px-2 py-1 text-[11px] font-semibold uppercase text-[#475467]"
+                >
+                  {link.label}
+                </span>
+              ))}
             </div>
-          </div>
+          )}
         </div>
-      </LocalizedClientLink>
+
+        <div className="col-span-2 flex items-center justify-between gap-3 border-t border-[#eaecf0] pt-3 small:col-span-1 small:flex-col small:items-stretch small:justify-center small:border-l small:border-t-0 small:pl-4 small:pt-0">
+          <LocalizedClientLink
+            href={`/products/${product.handle}`}
+            className="flex h-10 flex-1 items-center justify-center gap-2 rounded bg-[#1769aa] px-4 text-small-semi text-white hover:bg-[#125384] small:flex-none"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            View Deal
+          </LocalizedClientLink>
+          <ShareLinkButton
+            productHandle={product.handle}
+            compact
+            className="flex h-10 flex-1 items-center justify-center gap-2 rounded border border-[#d7dde5] px-3 text-small-semi text-[#344054] hover:bg-[#f9fafb] hover:text-[#1769aa] small:flex-none"
+          />
+        </div>
+      </div>
     )
   }
 
-  // ========================== VERTICAL GRID CARD LAYOUT (Related Products) ==========================
   return (
     <LocalizedClientLink
       href={`/products/${product.handle}`}
       className="group block h-full text-left"
     >
       <div
-        className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#cfd9e3] bg-white p-3 shadow-[0_10px_28px_rgba(21,59,101,0.06)] transition hover:border-[#0b65c2]/40 hover:shadow-[0_16px_40px_rgba(21,59,101,0.12)]"
+        className="flex h-full flex-col overflow-hidden rounded border border-[#d7dde5] bg-white p-3 transition hover:border-[#9ec7ea] hover:shadow-[0_8px_20px_rgba(16,24,40,0.08)]"
         data-testid="product-wrapper"
       >
-        <div className="relative aspect-square overflow-hidden rounded-xl bg-[#eef3f8]">
-          {activeSources.length > 0 && (
+        <div className="relative aspect-square overflow-hidden rounded bg-[#f2f4f7]">
+          {affiliateLinks.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex flex-wrap gap-1">
-              {activeSources.slice(0, 1).map((s) => (
+              {affiliateLinks.slice(0, 1).map((link) => (
                 <span
-                  key={s}
-                  className="rounded-full bg-[#ff8a00] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
+                  key={link.source}
+                  className="rounded bg-[#fff3eb] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#b54708]"
                 >
-                  {s}
+                  {link.label}
                 </span>
               ))}
             </div>
@@ -133,13 +151,13 @@ export default async function ProductPreview({
             images={product.images}
             size="full"
             isFeatured={isFeatured}
-            className="rounded-xl bg-transparent transition duration-500 group-hover:scale-105"
+            className="rounded bg-transparent transition duration-300 group-hover:scale-105"
           />
         </div>
 
         <div className="mt-3 flex flex-1 flex-col">
           <Text
-            className="line-clamp-2 text-base-semi leading-5 text-[#17202a] group-hover:text-[#0b65c2]"
+            className="line-clamp-2 text-base-semi leading-5 text-[#101828] group-hover:text-[#1769aa]"
             data-testid="product-title"
           >
             {product.title}
@@ -147,12 +165,13 @@ export default async function ProductPreview({
 
           <div className="mt-auto pt-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-large-semi text-[#b64000]">
-                {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
+              <div className="text-large-semi text-[#b54708]">
+                {primaryAffiliate?.priceText ||
+                  (cheapestPrice && <PreviewPrice price={cheapestPrice} />)}
               </div>
             </div>
-            <div className="mt-3 rounded-full bg-[#0b65c2] px-4 py-2.5 text-center text-small-semi text-white transition hover:bg-[#084b90]">
-              Buy Now
+            <div className="mt-3 rounded bg-[#1769aa] px-4 py-2.5 text-center text-small-semi text-white transition hover:bg-[#125384]">
+              View Deal
             </div>
           </div>
         </div>

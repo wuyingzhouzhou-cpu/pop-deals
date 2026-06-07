@@ -1,14 +1,12 @@
 import { Metadata } from "next"
 
-import FeaturedProducts from "@modules/home/components/featured-products"
-import Hero from "@modules/home/components/hero"
-import { listCollections } from "@lib/data/collections"
-import { getRegion } from "@lib/data/regions"
+import { listCategories } from "@lib/data/categories"
+import StoreTemplate from "@modules/store/templates"
 
 export const metadata: Metadata = {
-  title: "Best Collectible Deals",
+  title: "Frontpage Deals",
   description:
-    "Discover trending collectible toys and exclusive deals.",
+    "Community-style deal feed for trending products, coupons, and discounts.",
 }
 
 export default async function Home(props: {
@@ -18,24 +16,14 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const region = await getRegion(countryCode)
-
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
-
-  if (!collections || !region) {
-    return null
-  }
+  const productCategories = await listCategories()
 
   return (
-    <>
-      <Hero />
-      <div className="py-12">
-        <ul className="flex flex-col gap-x-6">
-          <FeaturedProducts collections={collections} region={region} />
-        </ul>
-      </div>
-    </>
+    <StoreTemplate
+      sortBy="created_at"
+      page="1"
+      countryCode={countryCode}
+      categories={productCategories}
+    />
   )
 }

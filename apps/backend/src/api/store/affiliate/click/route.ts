@@ -4,11 +4,26 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const pg = req.scope.resolve<any>(ContainerRegistrationKeys.PG_CONNECTION);
 
-  const { product_id, product_title, affiliate_url, source } = req.body as {
+  const {
+    product_id,
+    product_title,
+    affiliate_url,
+    source,
+    platform_title,
+    affiliate_id,
+    account_user,
+    creator_username,
+    click_id,
+  } = req.body as {
     product_id: string;
     product_title?: string;
     affiliate_url?: string;
     source?: string;
+    platform_title?: string;
+    affiliate_id?: string;
+    account_user?: string;
+    creator_username?: string;
+    click_id?: string;
   };
 
   if (!product_id) {
@@ -20,7 +35,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     `SELECT EXISTS (
        SELECT FROM information_schema.tables
        WHERE table_name = 'affiliate_clicks'
-     )`,
+     )`
   );
 
   if (!exists.rows[0]?.exists) {
@@ -31,6 +46,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         product_title TEXT NOT NULL DEFAULT '',
         affiliate_url TEXT NOT NULL DEFAULT '',
         source TEXT NOT NULL DEFAULT '',
+        platform_title TEXT NOT NULL DEFAULT '',
+        affiliate_id TEXT NOT NULL DEFAULT '',
+        account_user TEXT NOT NULL DEFAULT '',
+        creator_username TEXT NOT NULL DEFAULT '',
+        click_id TEXT NOT NULL DEFAULT '',
         device_type TEXT NOT NULL DEFAULT '',
         country_code TEXT NOT NULL DEFAULT '',
         user_agent TEXT NOT NULL DEFAULT '',
@@ -51,6 +71,22 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       ON affiliate_clicks (product_id)
     `);
   }
+
+  await pg.query(`
+    ALTER TABLE affiliate_clicks
+      ADD COLUMN IF NOT EXISTS platform_title TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS affiliate_id TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS account_user TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS creator_username TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS click_id TEXT NOT NULL DEFAULT ''
+  `);
+  await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_affiliate_clicks_click_id
+    ON affiliate_clicks (click_id)
+  `);
+
+  const generatedClickId =
+    click_id || `clk_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
 
   const ua = req.headers["user-agent"] || "";
   const uaLower = ua.toLowerCase();
@@ -73,19 +109,28 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   await pg.query(
     `INSERT INTO affiliate_clicks
-      (product_id, product_title, affiliate_url, source, device_type, country_code, user_agent, ip_address)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      (
+        product_id, product_title, affiliate_url, source, platform_title,
+        affiliate_id, account_user, creator_username, click_id, device_type,
+        country_code, user_agent, ip_address
+      )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [
       product_id,
       product_title || "",
       affiliate_url || "",
       source || "",
+      platform_title || "",
+      affiliate_id || "",
+      account_user || "",
+      creator_username || "",
+      generatedClickId,
       device_type,
       country_code,
       ua,
       ip_address,
-    ],
+    ]
   );
 
-  res.json({ success: true });
+  res.json({ success: true, click_id: generatedClickId });
 }

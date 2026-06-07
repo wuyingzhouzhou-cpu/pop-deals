@@ -1,3 +1,4 @@
+import { getAffiliateProductViews } from "@lib/data/affiliate-views"
 import { listProductsWithSort } from "@lib/data/products"
 import { getRegion } from "@lib/data/regions"
 import ProductPreview from "@modules/products/components/product-preview"
@@ -64,19 +65,43 @@ export default async function PaginatedProducts({
     countryCode,
   })
 
-  const totalPages = Math.ceil(count / PRODUCT_LIMIT)
+  const affiliateProducts = products.filter((product) => {
+    const metadata = product.metadata || {}
+
+    return metadata.affiliate_product_type === "guide" || metadata.affiliate_url
+  })
+  const viewCounts = await getAffiliateProductViews(
+    affiliateProducts.map((product) => product.id!)
+  )
+  const totalPages = Math.ceil(affiliateProducts.length / PRODUCT_LIMIT)
 
   return (
     <>
       <ul className="grid w-full grid-cols-1 gap-3" data-testid="products-list">
-        {products.map((p) => {
+        {affiliateProducts.map((p) => {
           return (
             <li key={p.id}>
-              <ProductPreview product={p} region={region} isRow={true} />
+              <ProductPreview
+                product={p}
+                region={region}
+                isRow={true}
+                viewCount={viewCounts[p.id!] || undefined}
+              />
             </li>
           )
         })}
       </ul>
+      {affiliateProducts.length === 0 && (
+        <div className="rounded border border-[#d7dde5] bg-white p-8 text-center">
+          <p className="text-base-semi text-[#101828]">
+            No affiliate products yet
+          </p>
+          <p className="mt-2 text-small-regular text-[#667085]">
+            Add guide products in Affiliate Product Manager, then assign them to
+            affiliate categories.
+          </p>
+        </div>
+      )}
       {totalPages > 1 && (
         <Pagination
           data-testid="product-pagination"

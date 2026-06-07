@@ -12,19 +12,37 @@ import { useState } from "react";
 type StatsResponse = {
   totals: {
     total_clicks: number;
+    total_views: number;
     unique_products: number;
     unique_visitors: number;
   };
   bySource: { source: string; count: number }[];
+  byAffiliate: {
+    affiliate_account: string;
+    affiliate_id: string;
+    platform_title: string;
+    creator_username: string;
+    count: number;
+  }[];
   byDevice: { device_type: string; count: number }[];
   byCountry: { country_code: string; count: number }[];
   byProduct: { product_id: string; product_title: string; count: number }[];
+  byViewedProduct: {
+    product_id: string;
+    product_title: string;
+    count: number;
+  }[];
   timeline: { date: string; count: number }[];
   recent: {
     id: number;
     product_id: string;
     product_title: string;
     source: string;
+    platform_title: string;
+    affiliate_id: string;
+    account_user: string;
+    creator_username: string;
+    click_id: string;
     device_type: string;
     country_code: string;
     affiliate_url: string;
@@ -38,9 +56,20 @@ type LinksResponse = {
     title: string;
     handle: string;
     thumbnail: string | null;
+    affiliate: AffiliateForm;
     links: Record<string, string>;
   }[];
   sources: string[];
+  platforms: { value: string; label: string }[];
+};
+
+type AffiliateForm = {
+  platform: string;
+  platform_title: string;
+  country: string;
+  affiliate_id: string;
+  account_user: string;
+  url: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -155,7 +184,7 @@ const AffiliateDashboard = () => {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (body: { id: string; links: Record<string, string> }) =>
+    mutationFn: (body: { id: string; affiliate: AffiliateForm }) =>
       fetch("/admin/affiliate/links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,13 +199,35 @@ const AffiliateDashboard = () => {
     },
   });
 
-  const [linkForm, setLinkForm] = useState<Record<string, string>>({});
-  const sources = linksData?.sources || [];
+  const emptyAffiliateForm: AffiliateForm = {
+    platform: "",
+    platform_title: "",
+    country: "",
+    affiliate_id: "",
+    account_user: "",
+    url: "",
+  };
+  const [affiliateForm, setAffiliateForm] =
+    useState<AffiliateForm>(emptyAffiliateForm);
+  const platforms = linksData?.platforms || [];
 
   const openLinkEditor = (productId: string) => {
     const item = linksData?.items.find((i) => i.id === productId);
-    setLinkForm(item?.links ? { ...item.links } : {});
+    setAffiliateForm(
+      item?.affiliate ? { ...item.affiliate } : emptyAffiliateForm
+    );
     setEditingProduct(productId);
+  };
+
+  const updateAffiliateForm = (key: keyof AffiliateForm, value: string) => {
+    const next = { ...affiliateForm, [key]: value };
+
+    if (key === "platform") {
+      const platform = platforms.find((p) => p.value === value);
+      next.platform_title = platform?.label || value;
+    }
+
+    setAffiliateForm(next);
   };
 
   return (
@@ -225,7 +276,11 @@ const AffiliateDashboard = () => {
           ) : (
             <>
               {/* Summary cards */}
-              <div className="mb-8 grid grid-cols-3 gap-4">
+              <div className="mb-8 grid grid-cols-4 gap-4">
+                <StatCard
+                  label="Product Views"
+                  value={fmt(stats.totals?.total_views || 0)}
+                />
                 <StatCard
                   label="Total Clicks"
                   value={fmt(stats.totals?.total_clicks || 0)}
@@ -250,7 +305,7 @@ const AffiliateDashboard = () => {
                     <div className="flex items-end gap-1">
                       {stats.timeline.map((d) => {
                         const max = Math.max(
-                          ...stats.timeline.map((t) => t.count),
+                          ...stats.timeline.map((t) => t.count)
                         );
                         const h = max > 0 ? (d.count / max) * 160 : 0;
                         return (
@@ -328,6 +383,32 @@ const AffiliateDashboard = () => {
                 </div>
               </div>
 
+              {stats.byAffiliate.length > 0 && (
+                <div className="mb-8">
+                  <Heading level="h2" className="mb-3 text-ui-fg-base">
+                    By Affiliate Account
+                  </Heading>
+                  <div className="rounded-xl border border-ui-border-base bg-white p-5">
+                    <div className="space-y-2">
+                      {stats.byAffiliate.map((a) => (
+                        <Bar
+                          key={a.affiliate_account}
+                          label={
+                            a.affiliate_account ||
+                            a.affiliate_id ||
+                            a.creator_username ||
+                            a.platform_title ||
+                            "unknown"
+                          }
+                          value={a.count}
+                          max={stats.byAffiliate[0]?.count || 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* By Country */}
               {stats.byCountry.length > 0 && (
                 <div className="mb-8">
@@ -379,8 +460,11 @@ const AffiliateDashboard = () => {
                   <Table>
                     <Table.Header>
                       <Table.Row>
+                        <Table.HeaderCell>Click ID</Table.HeaderCell>
                         <Table.HeaderCell>Product</Table.HeaderCell>
-                        <Table.HeaderCell>Source</Table.HeaderCell>
+                        <Table.HeaderCell>Platform</Table.HeaderCell>
+                        <Table.HeaderCell>Affiliate</Table.HeaderCell>
+                        <Table.HeaderCell>Creator</Table.HeaderCell>
                         <Table.HeaderCell>Device</Table.HeaderCell>
                         <Table.HeaderCell>Country</Table.HeaderCell>
                         <Table.HeaderCell>Time</Table.HeaderCell>
@@ -389,17 +473,26 @@ const AffiliateDashboard = () => {
                     <Table.Body>
                       {stats.recent.slice(0, 20).map((c) => (
                         <Table.Row key={c.id}>
+                          <Table.Cell className="max-w-[170px] truncate font-mono text-ui-fg-subtle">
+                            {c.click_id || "-"}
+                          </Table.Cell>
                           <Table.Cell className="max-w-[200px] truncate">
                             {c.product_title || c.product_id.slice(0, 16)}
                           </Table.Cell>
                           <Table.Cell>
                             {c.source ? (
                               <Badge size="small" color="blue">
-                                {c.source}
+                                {c.platform_title || c.source}
                               </Badge>
                             ) : (
                               <span className="text-ui-fg-muted">-</span>
                             )}
+                          </Table.Cell>
+                          <Table.Cell className="max-w-[180px] truncate text-ui-fg-subtle">
+                            {c.account_user || c.affiliate_id || "-"}
+                          </Table.Cell>
+                          <Table.Cell className="max-w-[160px] truncate text-ui-fg-subtle">
+                            {c.creator_username || "-"}
                           </Table.Cell>
                           <Table.Cell className="capitalize">
                             {c.device_type || "-"}
@@ -428,8 +521,12 @@ const AffiliateDashboard = () => {
       {tab === "links" && (
         <>
           <Heading level="h2" className="mb-4 text-ui-fg-base">
-            Manage Affiliate Links per Product
+            Manage Affiliate Product Info
           </Heading>
+          <p className="mb-4 max-w-3xl text-small-regular text-ui-fg-subtle">
+            These fields are saved on product metadata. The storefront uses
+            Landing URL as the primary Buy Now destination.
+          </p>
 
           {linksLoading ? (
             <div className="py-12 text-center text-ui-fg-subtle">
@@ -441,11 +538,11 @@ const AffiliateDashboard = () => {
                 <Table.Header>
                   <Table.Row>
                     <Table.HeaderCell>Product</Table.HeaderCell>
-                    {sources.map((s) => (
-                      <Table.HeaderCell key={s} className="uppercase">
-                        {s}
-                      </Table.HeaderCell>
-                    ))}
+                    <Table.HeaderCell>Platform</Table.HeaderCell>
+                    <Table.HeaderCell>Country</Table.HeaderCell>
+                    <Table.HeaderCell>Affiliate ID</Table.HeaderCell>
+                    <Table.HeaderCell>Account User</Table.HeaderCell>
+                    <Table.HeaderCell>Landing URL</Table.HeaderCell>
                     <Table.HeaderCell className="text-right">
                       Actions
                     </Table.HeaderCell>
@@ -468,27 +565,103 @@ const AffiliateDashboard = () => {
                             <span className="font-medium">{item.title}</span>
                           </div>
                         </Table.Cell>
-                        {sources.map((src) => (
-                          <Table.Cell key={src} className="max-w-[180px]">
-                            {isEditing ? (
-                              <input
-                                className="w-full rounded border border-ui-border-base px-2 py-1 text-small-regular"
-                                placeholder="Paste URL..."
-                                value={linkForm[src] || ""}
-                                onChange={(e) =>
-                                  setLinkForm({
-                                    ...linkForm,
-                                    [src]: e.target.value,
-                                  })
-                                }
-                              />
-                            ) : (
-                              <span className="block truncate text-ui-fg-subtle">
-                                {item.links[src] || "-"}
-                              </span>
-                            )}
-                          </Table.Cell>
-                        ))}
+                        <Table.Cell className="min-w-[150px]">
+                          {isEditing ? (
+                            <select
+                              className="w-full rounded border border-ui-border-base px-2 py-1 text-small-regular"
+                              value={affiliateForm.platform}
+                              onChange={(e) =>
+                                updateAffiliateForm("platform", e.target.value)
+                              }
+                            >
+                              <option value="">Select platform</option>
+                              {platforms.map((platform) => (
+                                <option
+                                  key={platform.value}
+                                  value={platform.value}
+                                >
+                                  {platform.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Badge size="small" color="blue">
+                              {item.affiliate.platform_title ||
+                                item.affiliate.platform ||
+                                "Not set"}
+                            </Badge>
+                          )}
+                        </Table.Cell>
+                        <Table.Cell className="min-w-[110px]">
+                          {isEditing ? (
+                            <input
+                              className="w-full rounded border border-ui-border-base px-2 py-1 text-small-regular"
+                              placeholder="US, DK, CN..."
+                              value={affiliateForm.country}
+                              onChange={(e) =>
+                                updateAffiliateForm("country", e.target.value)
+                              }
+                            />
+                          ) : (
+                            <span className="uppercase text-ui-fg-subtle">
+                              {item.affiliate.country || "-"}
+                            </span>
+                          )}
+                        </Table.Cell>
+                        <Table.Cell className="min-w-[150px]">
+                          {isEditing ? (
+                            <input
+                              className="w-full rounded border border-ui-border-base px-2 py-1 text-small-regular"
+                              placeholder="Affiliate ID"
+                              value={affiliateForm.affiliate_id}
+                              onChange={(e) =>
+                                updateAffiliateForm(
+                                  "affiliate_id",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          ) : (
+                            <span className="block truncate text-ui-fg-subtle">
+                              {item.affiliate.affiliate_id || "-"}
+                            </span>
+                          )}
+                        </Table.Cell>
+                        <Table.Cell className="min-w-[160px]">
+                          {isEditing ? (
+                            <input
+                              className="w-full rounded border border-ui-border-base px-2 py-1 text-small-regular"
+                              placeholder="Account user"
+                              value={affiliateForm.account_user}
+                              onChange={(e) =>
+                                updateAffiliateForm(
+                                  "account_user",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          ) : (
+                            <span className="block truncate text-ui-fg-subtle">
+                              {item.affiliate.account_user || "-"}
+                            </span>
+                          )}
+                        </Table.Cell>
+                        <Table.Cell className="min-w-[260px] max-w-[360px]">
+                          {isEditing ? (
+                            <input
+                              className="w-full rounded border border-ui-border-base px-2 py-1 text-small-regular"
+                              placeholder="https://..."
+                              value={affiliateForm.url}
+                              onChange={(e) =>
+                                updateAffiliateForm("url", e.target.value)
+                              }
+                            />
+                          ) : (
+                            <span className="block truncate text-ui-fg-subtle">
+                              {item.affiliate.url || "-"}
+                            </span>
+                          )}
+                        </Table.Cell>
                         <Table.Cell className="text-right">
                           {isEditing ? (
                             <div className="flex justify-end gap-1">
@@ -497,7 +670,7 @@ const AffiliateDashboard = () => {
                                 onClick={() =>
                                   saveMutation.mutate({
                                     id: item.id,
-                                    links: linkForm,
+                                    affiliate: affiliateForm,
                                   })
                                 }
                               >

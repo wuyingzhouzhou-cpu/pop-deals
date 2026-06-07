@@ -1,9 +1,19 @@
 import { Text } from "@modules/common/components/ui"
-import { listCategories } from "@lib/data/categories"
+import {
+  getAffiliateCategories,
+  getAffiliateCategoryLabel,
+  listCategories,
+} from "@lib/data/categories"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 export default async function Footer() {
   const productCategories = await listCategories()
+  const affiliateCategories = getAffiliateCategories(
+    productCategories,
+    "categories"
+  )
+    .filter((category) => !category.parent_category_id)
+    .slice(0, 8)
 
   return (
     <footer className="border-t border-ui-border-base bg-white">
@@ -19,23 +29,24 @@ export default async function Footer() {
             </p>
           </div>
 
-          {/* Categories */}
-          <div>
-            <h4 className="font-semibold mb-3">Categories</h4>
+          {affiliateCategories.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-3">Categories</h4>
 
-            <ul className="space-y-2 text-sm">
-              {productCategories?.slice(0, 8).map((category) => (
-                <li key={category.id}>
-                  <LocalizedClientLink
-                    href={`/categories/${category.handle}`}
-                    className="hover:text-ui-fg-base"
-                  >
-                    {category.name}
-                  </LocalizedClientLink>
-                </li>
-              ))}
-            </ul>
-          </div>
+              <ul className="space-y-2 text-sm">
+                {affiliateCategories.map((category) => (
+                  <li key={category.id}>
+                    <LocalizedClientLink
+                      href={`/categories/${category.handle}`}
+                      className="hover:text-ui-fg-base"
+                    >
+                      {getAffiliateCategoryLabel(category)}
+                    </LocalizedClientLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Legal */}
           <div>

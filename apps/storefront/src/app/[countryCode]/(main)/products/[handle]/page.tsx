@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { getAffiliateProductViews } from "@lib/data/affiliate-views"
 import { listProducts } from "@lib/data/products"
 import { getRegion, listRegions } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
@@ -120,12 +121,15 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
+  const viewCounts = await getAffiliateProductViews([pricedProduct.id!])
+
   return (
     <ProductTemplate
       product={pricedProduct}
       region={region}
       countryCode={params.countryCode}
       images={images ?? []}
+      viewCount={viewCounts[pricedProduct.id!] || undefined}
     />
   )
 }

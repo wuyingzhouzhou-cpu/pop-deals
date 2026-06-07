@@ -15,6 +15,7 @@ type Params = {
   searchParams: Promise<{
     sortBy?: SortOptions
     page?: string
+    channel?: "deals" | "categories" | "coupons" | "personal-finance"
   }>
   params: Promise<{
     countryCode: string
@@ -24,7 +25,7 @@ type Params = {
 export default async function StorePage(props: Params) {
   const params = await props.params
   const searchParams = await props.searchParams
-  const { sortBy, page } = searchParams
+  const { sortBy, page, channel } = searchParams
 
   const productCategories = await listCategories()
 
@@ -34,6 +35,7 @@ export default async function StorePage(props: Params) {
       page={page}
       countryCode={params.countryCode}
       categories={productCategories}
+      channel={channel || "deals"}
     />
   )
 }
