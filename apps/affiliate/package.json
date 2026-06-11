@@ -1,0 +1,27 @@
+{
+  "name": "@dtc/affiliate",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Multi-site affiliate guide platform built with Next.js",
+  "scripts": {
+    "dev": "WATCHPACK_POLLING=true next dev --turbopack -H 127.0.0.1 -p 8100",
+    "build": "next build",
+    "start": "next start -p 8100",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "15.5.18",
+    "pg": "^8.11.3",
+    "react": "19.0.5",
+    "react-dom": "19.0.5",
+    "server-only": "^0.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "17.0.21",
+    "@types/pg": "^8.11.0",
+    "@types/react": "19.0.5",
+    "@types/react-dom": "19.0.5",
+    "typescript": "^5.3.2"
+  }
+}
